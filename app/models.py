@@ -15,6 +15,15 @@ class LeadStatus(str, enum.Enum):
     lost = "lost"
 
 
+# won and lost are final, a closed lead can't be reopened
+ALLOWED_TRANSITIONS = {
+    LeadStatus.new: {LeadStatus.in_progress},
+    LeadStatus.in_progress: {LeadStatus.won, LeadStatus.lost},
+    LeadStatus.won: set(),
+    LeadStatus.lost: set(),
+}
+
+
 class Lead(Base):
     __tablename__ = "leads"
 

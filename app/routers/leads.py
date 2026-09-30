@@ -3,8 +3,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.models import Lead, LeadStatus
-from app.schemas import LeadCreate, LeadRead, LeadUpdate
+from app.models import ALLOWED_TRANSITIONS, Lead, LeadStatus
+from app.schemas import LeadCreate, LeadRead, LeadUpdate, StatusUpdate
 
 router = APIRouter(prefix="/leads", tags=["leads"])
 
@@ -47,6 +47,20 @@ def update_lead(lead_id: int, data: LeadUpdate, db: Session = Depends(get_db)):
     # only fields sent by the client, so omitted ones are not reset to None
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(lead, field, value)
+    db.commit()
+    db.refresh(lead)
+    return lead
+
+
+@router.patch("/{lead_id}/status", response_model=LeadRead)
+def change_status(lead_id: int, data: StatusUpdate, db: Session = Depends(get_db)):
+    lead = get_lead_or_404(lead_id, db)
+    if data.status not in ALLOWED_TRANSITIONS[lead.status]:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Can't change status from {lead.status.value} to {data.status.value}",
+        )
+    lead.status = data.status
     db.commit()
     db.refresh(lead)
     return lead
