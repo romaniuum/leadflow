@@ -13,6 +13,9 @@ class LeadCreate(BaseModel):
 
 
 class LeadUpdate(BaseModel):
+    # status is changed only via /status, so reject it here instead of ignoring
+    model_config = ConfigDict(extra="forbid")
+
     client_name: str | None = Field(default=None, min_length=1, max_length=200)
     source: str | None = Field(default=None, min_length=1, max_length=50)
     amount: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
