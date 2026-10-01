@@ -8,7 +8,18 @@
 Python 3.12, FastAPI, SQLAlchemy, PostgreSQL, Alembic, pytest,
 Docker Compose, GitHub Actions, Terraform (Yandex Cloud), Prometheus + Grafana.
 
-## Запуск
+## Запуск в Docker
+
+```bash
+docker compose up -d --build
+```
+
+Поднимутся PostgreSQL и приложение, миграции применяются при старте.
+API: http://localhost:8000, документация: http://localhost:8000/docs.
+Остановить: `docker compose down` (данные остаются в volume `pgdata`,
+удалить вместе с ними: `docker compose down -v`).
+
+## Локальный запуск
 
 ```bash
 python -m venv .venv
