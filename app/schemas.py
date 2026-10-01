@@ -25,6 +25,12 @@ class StatusUpdate(BaseModel):
     status: LeadStatus
 
 
+class FunnelStats(BaseModel):
+    total: int
+    by_status: dict[LeadStatus, int]
+    conversion_percent: float | None
+
+
 class LeadRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
