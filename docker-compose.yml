@@ -1,9 +1,10 @@
 services:
   db:
     image: postgres:17
+    restart: unless-stopped
     environment:
       POSTGRES_USER: leadflow
-      POSTGRES_PASSWORD: leadflow
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-leadflow}
       POSTGRES_DB: leadflow
     volumes:
       - pgdata:/var/lib/postgresql/data
@@ -15,13 +16,43 @@ services:
 
   app:
     build: .
+    restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql+psycopg://leadflow:leadflow@db:5432/leadflow
+      DATABASE_URL: postgresql+psycopg://leadflow:${POSTGRES_PASSWORD:-leadflow}@db:5432/leadflow
     ports:
       - "8000:8000"
     depends_on:
       db:
         condition: service_healthy
 
+  prometheus:
+    image: prom/prometheus:v3.15.0
+    restart: unless-stopped
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    # no auth in prometheus, so only localhost; on the server open it via ssh tunnel
+    ports:
+      - "127.0.0.1:9090:9090"
+    depends_on:
+      - app
+
+  grafana:
+    image: grafana/grafana:13.2.3
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+
 volumes:
   pgdata:
+  prometheus-data:
+  grafana-data:
