@@ -7,3 +7,10 @@ venv/
 .ruff_cache/
 .idea/
 .vscode/
+
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+key.json

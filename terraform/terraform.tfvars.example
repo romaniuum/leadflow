@@ -1,0 +1,4 @@
+cloud_id  = "b1g..."
+folder_id = "b1g..."
+
+# ssh_allowed_cidrs = ["1.2.3.4/32"]
