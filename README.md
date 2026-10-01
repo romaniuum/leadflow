@@ -2,75 +2,93 @@
 
 [![CI](https://github.com/romaniuum/leadflow/actions/workflows/ci.yml/badge.svg)](https://github.com/romaniuum/leadflow/actions/workflows/ci.yml)
 
-Мини-CRM для учета заявок: клиент, источник, сумма, статус по воронке.
-Пет-проект, в разработке.
+Мини-CRM для учета заявок. Заявка хранит клиента, источник, сумму и статус,
+статус двигается по воронке `new → in_progress → won / lost`. По заявкам
+считается конверсия и статистика по источникам.
 
-## Стек
+Сделано на Python 3.12 и FastAPI с PostgreSQL, запускается в Docker Compose.
+Инфраструктура в Yandex Cloud описана в Terraform, мониторинг на Prometheus и Grafana,
+тесты и линтер гоняются в GitHub Actions.
 
-Python 3.12, FastAPI, SQLAlchemy, PostgreSQL, Alembic, pytest,
-Docker Compose, GitHub Actions, Terraform (Yandex Cloud), Prometheus + Grafana.
+## API
 
-## Запуск в Docker
+| Метод | Путь | Что делает |
+|---|---|---|
+| POST | `/leads` | создать заявку |
+| GET | `/leads?status=new` | список заявок, фильтр по статусу необязательный |
+| GET | `/leads/{id}` | одна заявка |
+| PATCH | `/leads/{id}` | изменить клиента, источник или сумму |
+| PATCH | `/leads/{id}/status` | сменить статус, недопустимый переход вернет 409 |
+| DELETE | `/leads/{id}` | удалить заявку |
+| GET | `/analytics/funnel` | заявки по статусам и конверсия |
+| GET | `/analytics/sources` | заявки, выигранные сделки и конверсия по источникам |
+
+Конверсия считается как `won / (won + lost)`, то есть только по закрытым заявкам.
+Если закрытых нет, вернется `null`.
+
+Полная документация в Swagger: `/docs`.
+
+## Запуск
 
 ```bash
 docker compose up -d --build
 ```
 
-Поднимутся PostgreSQL и приложение, миграции применяются при старте.
-API: http://localhost:8000, документация: http://localhost:8000/docs.
-Остановить: `docker compose down` (данные остаются в volume `pgdata`,
-удалить вместе с ними: `docker compose down -v`).
+Поднимутся PostgreSQL, приложение, Prometheus и Grafana, миграции применяются при старте.
 
-## Локальный запуск
+- API: http://localhost:8000/docs
+- Grafana: http://localhost:3000 (`admin` / `admin`)
+- Prometheus: http://localhost:9090
 
-```bash
-python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-```
+Остановить: `docker compose down`. Данные остаются в volumes,
+удалить вместе с ними: `docker compose down -v`.
 
-Нужен PostgreSQL. Адрес берется из `DATABASE_URL`, по умолчанию
-`postgresql+psycopg://leadflow:leadflow@localhost:5432/leadflow`.
-Локально можно поднять так:
+Пароли берутся из `.env` (пример в `.env.example`), без него используются
+значения для локальной разработки.
+
+## Разработка
+
+Нужен Python 3.12 и PostgreSQL. Базу проще поднять отдельным контейнером:
 
 ```bash
 docker run -d --name leadflow-db -e POSTGRES_USER=leadflow \
   -e POSTGRES_PASSWORD=leadflow -e POSTGRES_DB=leadflow -p 5432:5432 postgres:17
 ```
 
-Миграции и запуск:
+Через несколько секунд, когда база запустится, создать базу для тестов:
 
 ```bash
+docker exec leadflow-db psql -U leadflow -c "CREATE DATABASE leadflow_test"
+```
+
+```bash
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+pip install -r requirements-dev.txt
 alembic upgrade head
 uvicorn app.main:app --reload
 ```
 
-API: http://localhost:8000, документация: http://localhost:8000/docs
+Адрес базы берется из `DATABASE_URL`, по умолчанию
+`postgresql+psycopg://leadflow:leadflow@localhost:5432/leadflow`.
 
-## Тесты
-
-Тесты используют отдельную базу из `TEST_DATABASE_URL`, по умолчанию
-`leadflow_test` в том же контейнере. Таблицы создаются и удаляются автоматически.
+Тесты работают с отдельной базой `leadflow_test` (`TEST_DATABASE_URL`),
+таблицы создаются и удаляются автоматически. Перед push стоит прогнать то же, что и CI:
 
 ```bash
-docker exec leadflow-db psql -U leadflow -c "CREATE DATABASE leadflow_test"
-pip install -r requirements-dev.txt
 pytest
-```
-
-Линтер (то же самое запускается в CI):
-
-```bash
 ruff check .
 ruff format --check .
 ```
 
-## Инфраструктура
+## Инфраструктура и деплой
 
-ВМ в Yandex Cloud описана в `terraform/`: сеть, подсеть, security group
-(порты 22 и 8000) и ВМ на Ubuntu 24.04 с пользователем `deploy`.
+В `terraform/` описаны сеть, подсеть, security group (порты 22, 8000 и 3000)
+и ВМ на Ubuntu 24.04. При первом запуске cloud-init создает пользователя `deploy`
+и ставит Docker.
 
-Нужен сервисный аккаунт с ролью `editor` на каталог и его ключ в `terraform/key.json`:
+Для Terraform нужен сервисный аккаунт с ролью `editor` на каталог
+и его ключ в `terraform/key.json`:
 
 ```bash
 cd terraform
@@ -80,26 +98,27 @@ terraform plan
 terraform apply
 ```
 
-После `apply` в выводе будет публичный IP и команда для SSH. Удалить все: `terraform destroy`.
-
-## Деплой
-
-На ВМ уже стоят Docker и git (ставятся через cloud-init). Деплой из ветки `main`:
+После `apply` в выводе будет публичный IP. Деплой из ветки `main`:
 
 ```bash
 ./deploy.sh deploy@<ip>
 ```
 
-При первом запуске скрипт склонирует репозиторий и попросит создать `.env`
-на сервере (пример в `.env.example`), после этого запустить его еще раз.
+Скрипт заходит на ВМ по SSH, обновляет код и перезапускает compose.
+При первом запуске он склонирует репозиторий и остановится: на сервере нужно
+создать `~/leadflow/.env` по образцу `.env.example` и запустить скрипт еще раз.
 
 ## Мониторинг
 
-Приложение отдает метрики Prometheus на `/metrics`. В compose вместе с приложением
-поднимаются Prometheus и Grafana с готовым дашбордом leadflow
-(запросы в секунду, задержки p50/p95, доля 5xx).
+Приложение отдает метрики на `/metrics`. Prometheus собирает их раз в 15 секунд,
+в Grafana есть дашборд leadflow: доступность, доля ошибок 5xx, запросы в секунду,
+задержки p50/p95 и ответы по кодам.
 
-- Grafana: http://<ip>:3000, логин `admin`, пароль `GRAFANA_PASSWORD` из `.env`
-  (локально `admin`)
-- Prometheus наружу не открыт, только через SSH-туннель:
-  `ssh -L 9090:localhost:9090 deploy@<ip>`, затем http://localhost:9090
+На сервере Grafana открыта на порту 3000 (`admin`, пароль `GRAFANA_PASSWORD` из `.env`).
+Prometheus без авторизации, поэтому наружу не открыт, только через SSH-туннель:
+
+```bash
+ssh -L 9090:localhost:9090 deploy@<ip>
+```
+
+Затем http://localhost:9090.
