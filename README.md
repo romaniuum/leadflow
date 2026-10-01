@@ -33,3 +33,14 @@ uvicorn app.main:app --reload
 ```
 
 API: http://localhost:8000, документация: http://localhost:8000/docs
+
+## Тесты
+
+Тесты используют отдельную базу из `TEST_DATABASE_URL`, по умолчанию
+`leadflow_test` в том же контейнере. Таблицы создаются и удаляются автоматически.
+
+```bash
+docker exec leadflow-db psql -U leadflow -c "CREATE DATABASE leadflow_test"
+pip install -r requirements-dev.txt
+pytest
+```
