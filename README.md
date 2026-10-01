@@ -81,3 +81,25 @@ terraform apply
 ```
 
 После `apply` в выводе будет публичный IP и команда для SSH. Удалить все: `terraform destroy`.
+
+## Деплой
+
+На ВМ уже стоят Docker и git (ставятся через cloud-init). Деплой из ветки `main`:
+
+```bash
+./deploy.sh deploy@<ip>
+```
+
+При первом запуске скрипт склонирует репозиторий и попросит создать `.env`
+на сервере (пример в `.env.example`), после этого запустить его еще раз.
+
+## Мониторинг
+
+Приложение отдает метрики Prometheus на `/metrics`. В compose вместе с приложением
+поднимаются Prometheus и Grafana с готовым дашбордом leadflow
+(запросы в секунду, задержки p50/p95, доля 5xx).
+
+- Grafana: http://<ip>:3000, логин `admin`, пароль `GRAFANA_PASSWORD` из `.env`
+  (локально `admin`)
+- Prometheus наружу не открыт, только через SSH-туннель:
+  `ssh -L 9090:localhost:9090 deploy@<ip>`, затем http://localhost:9090
