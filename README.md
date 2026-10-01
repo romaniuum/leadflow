@@ -10,6 +10,33 @@
 Инфраструктура в Yandex Cloud описана в Terraform, мониторинг на Prometheus и Grafana,
 тесты и линтер гоняются в GitHub Actions.
 
+## Как устроено
+
+```mermaid
+flowchart TB
+    client(["Клиент"])
+    dev(["Разработчик"])
+
+    subgraph vm ["ВМ в Yandex Cloud, Docker Compose"]
+        app["FastAPI :8000"] --> db[("PostgreSQL")]
+        prometheus["Prometheus"] -->|"/metrics"| app
+        grafana["Grafana :3000"] --> prometheus
+    end
+
+    client --> app
+    dev --> grafana
+    dev -->|"deploy.sh"| vm
+    dev -->|"push"| github["GitHub"]
+    github --> ci["GitHub Actions: ruff, pytest"]
+    vm -->|"git pull"| github
+    terraform["Terraform"] -->|"создает"| vm
+```
+
+Все сервисы работают в одном Docker Compose на ВМ. Наружу открыты только API
+и Grafana, база и Prometheus доступны внутри сети Docker. ВМ создается Terraform,
+код на нее попадает через `deploy.sh`: скрипт по SSH делает `git pull`
+и пересобирает контейнеры.
+
 ## API
 
 | Метод | Путь | Что делает |
