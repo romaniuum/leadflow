@@ -31,6 +31,14 @@ class FunnelStats(BaseModel):
     conversion_percent: float | None
 
 
+class SourceStats(BaseModel):
+    source: str
+    total: int
+    won: int
+    won_amount: Decimal
+    conversion_percent: float | None
+
+
 class LeadRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends
-from sqlalchemy import func, select
+from sqlalchemy import Numeric, cast, func, select
 from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.models import Lead, LeadStatus
-from app.schemas import FunnelStats
+from app.schemas import FunnelStats, SourceStats
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
@@ -31,3 +31,32 @@ def funnel(db: Session = Depends(get_db)):
         by_status=by_status,
         conversion_percent=conversion(by_status[LeadStatus.won], by_status[LeadStatus.lost]),
     )
+
+
+@router.get("/sources", response_model=list[SourceStats])
+def sources(db: Session = Depends(get_db)):
+    is_won = Lead.status == LeadStatus.won
+    total = func.count().label("total")
+    # same type as the column, so an empty sum comes back as 0.00, not 0
+    zero = cast(0, Numeric(12, 2))
+    query = (
+        select(
+            Lead.source,
+            total,
+            func.count().filter(is_won).label("won"),
+            func.count().filter(Lead.status == LeadStatus.lost).label("lost"),
+            func.coalesce(func.sum(Lead.amount).filter(is_won), zero).label("won_amount"),
+        )
+        .group_by(Lead.source)
+        .order_by(total.desc(), Lead.source)
+    )
+    return [
+        SourceStats(
+            source=row.source,
+            total=row.total,
+            won=row.won,
+            won_amount=row.won_amount,
+            conversion_percent=conversion(row.won, row.lost),
+        )
+        for row in db.execute(query)
+    ]
