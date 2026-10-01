@@ -64,3 +64,20 @@ pytest
 ruff check .
 ruff format --check .
 ```
+
+## Инфраструктура
+
+ВМ в Yandex Cloud описана в `terraform/`: сеть, подсеть, security group
+(порты 22 и 8000) и ВМ на Ubuntu 24.04 с пользователем `deploy`.
+
+Нужен сервисный аккаунт с ролью `editor` на каталог и его ключ в `terraform/key.json`:
+
+```bash
+cd terraform
+cp terraform.tfvars.example terraform.tfvars  # вписать cloud_id и folder_id
+terraform init
+terraform plan
+terraform apply
+```
+
+После `apply` в выводе будет публичный IP и команда для SSH. Удалить все: `terraform destroy`.
