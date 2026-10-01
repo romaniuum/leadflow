@@ -1,5 +1,7 @@
 # leadflow
 
+[![CI](https://github.com/romaniuum/leadflow/actions/workflows/ci.yml/badge.svg)](https://github.com/romaniuum/leadflow/actions/workflows/ci.yml)
+
 Мини-CRM для учета заявок: клиент, источник, сумма, статус по воронке.
 Пет-проект, в разработке.
 
@@ -54,4 +56,11 @@ API: http://localhost:8000, документация: http://localhost:8000/docs
 docker exec leadflow-db psql -U leadflow -c "CREATE DATABASE leadflow_test"
 pip install -r requirements-dev.txt
 pytest
+```
+
+Линтер (то же самое запускается в CI):
+
+```bash
+ruff check .
+ruff format --check .
 ```
