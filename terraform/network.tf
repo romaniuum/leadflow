@@ -27,6 +27,13 @@ resource "yandex_vpc_security_group" "leadflow" {
     v4_cidr_blocks = ["0.0.0.0/0"]
   }
 
+  ingress {
+    description    = "Grafana"
+    protocol       = "TCP"
+    port           = 3000
+    v4_cidr_blocks = ["0.0.0.0/0"]
+  }
+
   egress {
     description    = "Any outgoing traffic, needed for apt and docker pull"
     protocol       = "ANY"
